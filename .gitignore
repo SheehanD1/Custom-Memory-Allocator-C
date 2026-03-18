@@ -1,0 +1,23 @@
+# Build output
+build/
+
+# Object files
+*.o
+*.obj
+
+# Executables
+*.out
+*.exe
+
+# Debug files
+*.dSYM/
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
