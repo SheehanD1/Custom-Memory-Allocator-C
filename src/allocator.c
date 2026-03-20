@@ -150,6 +150,56 @@ static void split_block(block_header_t *block, size_t size) {
 }
 
 /* ---------------------------------------------------------------
+ * Internal: Coalescing
+ * --------------------------------------------------------------- */
+
+/*
+ * Coalesce a free block with its physically adjacent neighbors.
+ * Returns a pointer to the resulting (possibly larger) free block.
+ *
+ * Cases:
+ *   1. Neither neighbor is free          → just return block
+ *   2. Next block is free                → merge with next
+ *   3. Previous block is free            → merge with prev
+ *   4. Both neighbors are free           → merge all three
+ */
+static block_header_t *coalesce(block_header_t *block) {
+    block_header_t *next = NEXT_BLOCK(block);
+    int next_alloc = GET_ALLOC(next);
+
+    size_t *prev_footer = PREV_FOOTER(block);
+    int prev_alloc = (*prev_footer) & 0x1;
+
+    size_t size = GET_SIZE(block);
+
+    if (prev_alloc && next_alloc) {
+        /* Case 1: no coalescing needed */
+    } else if (prev_alloc && !next_alloc) {
+        /* Case 2: merge with next block */
+        free_list_remove(next);
+        size += GET_SIZE(next);
+        write_block(block, size, 0);
+    } else if (!prev_alloc && next_alloc) {
+        /* Case 3: merge with previous block */
+        block_header_t *prev = PREV_BLOCK(block);
+        free_list_remove(prev);
+        size += GET_SIZE(prev);
+        write_block(prev, size, 0);
+        block = prev;
+    } else {
+        /* Case 4: merge with both neighbors */
+        block_header_t *prev = PREV_BLOCK(block);
+        free_list_remove(prev);
+        free_list_remove(next);
+        size += GET_SIZE(prev) + GET_SIZE(next);
+        write_block(prev, size, 0);
+        block = prev;
+    }
+
+    return block;
+}
+
+/* ---------------------------------------------------------------
  * Internal: Heap Extension
  * --------------------------------------------------------------- */
 
@@ -177,7 +227,8 @@ static block_header_t *extend_heap(size_t size) {
     heap_epilogue = NEXT_BLOCK(block);
     heap_epilogue->size = PACK(0, 1);
 
-    /* Insert the new block into the free list */
+    /* Coalesce with the previous block if it was free */
+    block = coalesce(block);
     free_list_insert(block);
 
     return block;
@@ -263,13 +314,20 @@ void *my_malloc(size_t size) {
     return PAYLOAD(block);
 }
 
-/*
- * Placeholder — will be implemented in the next commit
- * along with boundary-tag coalescing.
- */
 void my_free(void *ptr) {
-    (void)ptr;
-    fprintf(stderr, "my_free: not yet implemented\n");
+    if (ptr == NULL) {
+        return;
+    }
+
+    block_header_t *block = HEADER(ptr);
+
+    /* Mark as free */
+    size_t size = GET_SIZE(block);
+    write_block(block, size, 0);
+
+    /* Coalesce with neighbors and insert into free list */
+    block = coalesce(block);
+    free_list_insert(block);
 }
 
 void *my_calloc(size_t num, size_t size) {
