@@ -331,15 +331,62 @@ void my_free(void *ptr) {
 }
 
 void *my_calloc(size_t num, size_t size) {
-    (void)num;
-    (void)size;
-    fprintf(stderr, "my_calloc: not yet implemented\n");
-    return NULL;
+    /* Check for multiplication overflow */
+    if (num != 0 && size > (size_t)-1 / num) {
+        return NULL;
+    }
+
+    size_t total = num * size;
+    void *ptr = my_malloc(total);
+    if (ptr != NULL) {
+        memset(ptr, 0, total);
+    }
+    return ptr;
 }
 
 void *my_realloc(void *ptr, size_t size) {
-    (void)ptr;
-    (void)size;
-    fprintf(stderr, "my_realloc: not yet implemented\n");
-    return NULL;
+    /* realloc(NULL, size) == malloc(size) */
+    if (ptr == NULL) {
+        return my_malloc(size);
+    }
+
+    /* realloc(ptr, 0) == free(ptr) */
+    if (size == 0) {
+        my_free(ptr);
+        return NULL;
+    }
+
+    block_header_t *block = HEADER(ptr);
+    size_t old_size = GET_SIZE(block);
+    size_t old_payload = old_size - OVERHEAD;
+    size_t new_size = adjust_size(size);
+
+    /* Case 1: Current block is large enough — shrink in place */
+    if (old_size >= new_size) {
+        split_block(block, new_size);
+        return ptr;
+    }
+
+    /* Case 2: Next block is free and combined size is enough — expand in place */
+    block_header_t *next = NEXT_BLOCK(block);
+    if (!GET_ALLOC(next)) {
+        size_t combined = old_size + GET_SIZE(next);
+        if (combined >= new_size) {
+            free_list_remove(next);
+            write_block(block, combined, 1);
+            split_block(block, new_size);
+            return ptr;
+        }
+    }
+
+    /* Case 3: Must relocate — allocate new, copy, free old */
+    void *new_ptr = my_malloc(size);
+    if (new_ptr == NULL) {
+        return NULL;
+    }
+
+    size_t copy_size = (old_payload < size) ? old_payload : size;
+    memcpy(new_ptr, ptr, copy_size);
+    my_free(ptr);
+    return new_ptr;
 }
