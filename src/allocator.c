@@ -19,13 +19,13 @@
  * --------------------------------------------------------------- */
 
 /* Head of the explicit free list (doubly-linked, LIFO insertion) */
-static block_header_t *free_list_head = NULL;
+block_header_t *free_list_head = NULL;
 
 /* Pointer to the prologue block (sentinel at heap start) */
-static block_header_t *heap_prologue = NULL;
+block_header_t *heap_prologue = NULL;
 
 /* Pointer to the epilogue header (sentinel at heap end) */
-static block_header_t *heap_epilogue = NULL;
+block_header_t *heap_epilogue = NULL;
 
 /* Track whether the allocator has been initialized */
 static int initialized = 0;
