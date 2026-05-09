@@ -69,7 +69,7 @@ test: $(TEST_BIN)
 # Run benchmarks
 bench: $(BENCH_BIN)
 	@echo "========================================"
-	@echo "       Running Benchmarks               "
+	@echo "       Running Full Benchmarks               "
 	@echo "========================================"
 	@for b in $(BENCH_BIN); do \
 		echo "\n--- Running $$b ---"; \
