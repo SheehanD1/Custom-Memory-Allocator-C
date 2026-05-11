@@ -1,4 +1,4 @@
-# Custom Memory Allocator in C
+# Custom Memory Allocator in C - Sheehan Dandapat
 
 A from-scratch implementation of `malloc`, `free`, `calloc`, and `realloc` in C, designed to deepen understanding of low-level systems programming and memory management.
 
