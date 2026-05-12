@@ -4,7 +4,7 @@
  * Explicit free list with boundary-tag coalescing, block splitting,
  * and configurable first-fit / best-fit search strategy.
  *
- * Author: Sheehan
+ * Author: Sheehan Dandapat
  */
 
 #include "allocator.h"
