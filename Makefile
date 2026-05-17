@@ -17,7 +17,9 @@ OBJ     = $(patsubst $(SRC_DIR)/%.c, $(BUILD)/%.o, $(SRC))
 # Test files
 TEST_DIR   = tests
 TEST_SRC   = $(wildcard $(TEST_DIR)/*.c)
+
 TEST_BIN   = $(patsubst $(TEST_DIR)/%.c, $(BUILD)/%, $(TEST_SRC))
+
 
 # Benchmark files
 BENCH_DIR  = benchmarks
