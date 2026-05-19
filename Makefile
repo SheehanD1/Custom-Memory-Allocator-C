@@ -17,7 +17,9 @@ OBJ     = $(patsubst $(SRC_DIR)/%.c, $(BUILD)/%.o, $(SRC))
 # Test files
 TEST_DIR   = tests
 TEST_SRC   = $(wildcard $(TEST_DIR)/*.c)
+
 TEST_BIN   = $(patsubst $(TEST_DIR)/%.c, $(BUILD)/%, $(TEST_SRC))
+
 
 # Benchmark files
 BENCH_DIR  = benchmarks
@@ -69,7 +71,7 @@ test: $(TEST_BIN)
 # Run benchmarks
 bench: $(BENCH_BIN)
 	@echo "========================================"
-	@echo "       Running Benchmarks               "
+	@echo "       Running Full Benchmarks               "
 	@echo "========================================"
 	@for b in $(BENCH_BIN); do \
 		echo "\n--- Running $$b ---"; \
