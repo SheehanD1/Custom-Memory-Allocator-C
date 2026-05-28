@@ -127,6 +127,89 @@ TEST(test_no_coalesce) {
 }
 
 /* ---------------------------------------------------------------
+ * Splitting Tests
+ * --------------------------------------------------------------- */
+
+/*
+ * Allocate from a large free block — the remainder should be
+ * split into a new free block that can satisfy a later request.
+ */
+TEST(test_split_basic) {
+    /* Free everything to get one big block, then allocate small */
+    void *big = my_malloc(512);
+    ASSERT(big != NULL, "large allocation failed");
+    my_free(big);
+
+    void *small = my_malloc(32);
+    ASSERT(small != NULL, "small allocation after free failed");
+
+    /* The remainder from splitting should still be usable */
+    void *rest = my_malloc(256);
+    ASSERT(rest != NULL, "remainder allocation failed — split didn't work");
+    ASSERT(my_heap_check() == 0, "heap invariant violated after split");
+
+    my_free(small);
+    my_free(rest);
+}
+
+/*
+ * Allocate several blocks, free them all, verify they coalesce
+ * back into a single block that can satisfy one large allocation.
+ */
+TEST(test_split_and_coalesce) {
+    void *ptrs[8];
+
+    /* Allocate 8 small blocks */
+    for (int i = 0; i < 8; i++) {
+        ptrs[i] = my_malloc(32);
+        ASSERT(ptrs[i] != NULL, "allocation failed during split test");
+    }
+
+    ASSERT(my_heap_check() == 0, "heap invariant violated after allocations");
+
+    /* Free all of them — they should coalesce back together */
+    for (int i = 0; i < 8; i++) {
+        my_free(ptrs[i]);
+    }
+
+    ASSERT(my_heap_check() == 0, "heap invariant violated after freeing all");
+
+    /* One large allocation should now succeed from the coalesced space */
+    void *big = my_malloc(256);
+    ASSERT(big != NULL, "coalesced block can't satisfy large allocation");
+    my_free(big);
+}
+
+/*
+ * Interleaved alloc/free pattern — exercises both splitting
+ * and coalescing across multiple cycles.
+ */
+TEST(test_interleaved_alloc_free) {
+    void *a = my_malloc(64);
+    void *b = my_malloc(64);
+    void *c = my_malloc(64);
+    void *d = my_malloc(64);
+    ASSERT(a && b && c && d, "initial allocations failed");
+
+    /* Free every other block */
+    my_free(b);
+    my_free(d);
+    ASSERT(my_heap_check() == 0, "heap check failed after partial free");
+
+    /* Allocate into the holes */
+    void *b2 = my_malloc(64);
+    void *d2 = my_malloc(64);
+    ASSERT(b2 != NULL && d2 != NULL, "hole allocations failed");
+
+    /* Free everything */
+    my_free(a);
+    my_free(b2);
+    my_free(c);
+    my_free(d2);
+    ASSERT(my_heap_check() == 0, "heap check failed after full free");
+}
+
+/* ---------------------------------------------------------------
  * Main
  * --------------------------------------------------------------- */
 
@@ -141,6 +224,9 @@ int main(void) {
     RUN_TEST(test_coalesce_prev);
     RUN_TEST(test_coalesce_both);
     RUN_TEST(test_no_coalesce);
+    RUN_TEST(test_split_basic);
+    RUN_TEST(test_split_and_coalesce);
+    RUN_TEST(test_interleaved_alloc_free);
 
     printf("========================================\n");
     printf("  Results: %d/%d passed\n", tests_passed, tests_run);
