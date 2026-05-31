@@ -143,6 +143,57 @@ TEST(test_random_alloc_free) {
     ASSERT(my_heap_check() == 0, "heap corrupted after random test cleanup");
 }
 
+/*
+ * Bulk alloc then bulk free — allocate many blocks, then free
+ * them all. Verifies coalescing reclaims the space and a large
+ * allocation can succeed afterward.
+ */
+TEST(test_bulk_alloc_free) {
+    #define BULK_COUNT 128
+    void *ptrs[BULK_COUNT];
+
+    /* Allocate all */
+    for (int i = 0; i < BULK_COUNT; i++) {
+        ptrs[i] = my_malloc(48);
+        ASSERT(ptrs[i] != NULL, "bulk allocation failed");
+        memset(ptrs[i], (unsigned char)i, 48);
+    }
+    ASSERT(my_heap_check() == 0, "heap corrupted after bulk alloc");
+
+    /* Free all */
+    for (int i = 0; i < BULK_COUNT; i++) {
+        my_free(ptrs[i]);
+    }
+    ASSERT(my_heap_check() == 0, "heap corrupted after bulk free");
+
+    /* All blocks should have coalesced — a large allocation should work */
+    void *big = my_malloc(BULK_COUNT * 32);
+    ASSERT(big != NULL, "large allocation failed after bulk free — coalescing broken?");
+    my_free(big);
+}
+
+/*
+ * Growing sizes — allocate progressively larger blocks, then
+ * free in reverse. Tests heap extension and backward coalescing.
+ */
+TEST(test_growing_sizes) {
+    #define GROW_COUNT 20
+    void *ptrs[GROW_COUNT];
+
+    for (int i = 0; i < GROW_COUNT; i++) {
+        size_t size = (size_t)(1 << (i % 10));  /* 1, 2, 4, ... 512, 1, 2, ... */
+        ptrs[i] = my_malloc(size);
+        ASSERT(ptrs[i] != NULL, "growing allocation failed");
+    }
+    ASSERT(my_heap_check() == 0, "heap corrupted after growing allocs");
+
+    /* Free in reverse order */
+    for (int i = GROW_COUNT - 1; i >= 0; i--) {
+        my_free(ptrs[i]);
+    }
+    ASSERT(my_heap_check() == 0, "heap corrupted after reverse free");
+}
+
 /* ---------------------------------------------------------------
  * Main
  * --------------------------------------------------------------- */
@@ -157,6 +208,8 @@ int main(void) {
 
     RUN_TEST(test_rapid_alloc_free);
     RUN_TEST(test_random_alloc_free);
+    RUN_TEST(test_bulk_alloc_free);
+    RUN_TEST(test_growing_sizes);
 
     printf("========================================\n");
     printf("  Results: %d/%d passed\n", tests_passed, tests_run);
