@@ -115,10 +115,37 @@ static block_header_t *find_first_fit(size_t size) {
 }
 
 /*
+ * Best-fit: scan the entire free list for the smallest block
+ * that is large enough. Returns immediately on an exact fit.
+ */
+static block_header_t *find_best_fit(size_t size) {
+    block_header_t *current = free_list_head;
+    block_header_t *best = NULL;
+
+    while (current != NULL) {
+        size_t block_size = GET_SIZE(current);
+        if (block_size >= size) {
+            if (best == NULL || block_size < GET_SIZE(best)) {
+                best = current;
+                /* Exact fit — can't do better */
+                if (block_size == size) {
+                    return best;
+                }
+            }
+        }
+        current = current->next;
+    }
+    return best;
+}
+
+/*
  * Find a suitable free block using the configured strategy.
- * (Best-fit will be added in a later commit.)
+ * Controlled by the USE_BEST_FIT compile-time flag.
  */
 static block_header_t *find_fit(size_t size) {
+    if (STRATEGY_BEST_FIT) {
+        return find_best_fit(size);
+    }
     return find_first_fit(size);
 }
 
