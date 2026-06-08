@@ -73,6 +73,124 @@ static void bench_throughput_system(void) {
 }
 
 /* ---------------------------------------------------------------
+ * Fragmentation Benchmark
+ *
+ * Allocate a mix of sizes, free half, allocate again.
+ * Measure utilization = (active payload) / (total heap growth).
+ * --------------------------------------------------------------- */
+
+#define FRAG_COUNT 200
+
+static void bench_fragmentation(void) {
+    void  *ptrs[FRAG_COUNT];
+    size_t sizes[FRAG_COUNT];
+    size_t total_payload = 0;
+
+    srand(42); /* deterministic for reproducibility */
+
+    /* Phase 1: allocate FRAG_COUNT blocks of random sizes */
+    for (int i = 0; i < FRAG_COUNT; i++) {
+        sizes[i] = (size_t)(rand() % 256) + 8;
+        ptrs[i] = my_malloc(sizes[i]);
+        total_payload += sizes[i];
+    }
+
+    /* Phase 2: free every other block (creates fragmentation) */
+    size_t freed_payload = 0;
+    for (int i = 0; i < FRAG_COUNT; i += 2) {
+        my_free(ptrs[i]);
+        freed_payload += sizes[i];
+        ptrs[i] = NULL;
+    }
+
+    size_t active_payload = total_payload - freed_payload;
+
+    /* Phase 3: try to allocate into the holes */
+    int reuse_count = 0;
+    for (int i = 0; i < FRAG_COUNT; i += 2) {
+        sizes[i] = (size_t)(rand() % 128) + 8;
+        ptrs[i] = my_malloc(sizes[i]);
+        if (ptrs[i] != NULL) {
+            reuse_count++;
+            active_payload += sizes[i];
+        }
+    }
+
+    /* Report */
+    void *brk = sbrk(0);
+    printf("  Active payload:    %zu bytes\n", active_payload);
+    printf("  Current brk:       %p\n", brk);
+    printf("  Hole reuse:        %d / %d freed slots refilled\n",
+           reuse_count, FRAG_COUNT / 2);
+
+    /* Cleanup */
+    for (int i = 0; i < FRAG_COUNT; i++) {
+        if (ptrs[i] != NULL) my_free(ptrs[i]);
+    }
+}
+
+/* ---------------------------------------------------------------
+ * Mixed-Workload Throughput
+ *
+ * Random allocation sizes with interleaved frees — more realistic
+ * than the fixed-size throughput benchmark.
+ * --------------------------------------------------------------- */
+
+#define MIX_OPS  5000
+#define MIX_POOL 128
+
+static void bench_mixed_workload(void) {
+    void *pool[MIX_POOL];
+    int count = 0;
+    struct timespec start, end;
+
+    memset(pool, 0, sizeof(pool));
+    srand(123);
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    for (int op = 0; op < MIX_OPS; op++) {
+        if (count == 0 || (count < MIX_POOL && rand() % 3 != 0)) {
+            /* Allocate — 2/3 chance when pool isn't full */
+            int slot = -1;
+            for (int i = 0; i < MIX_POOL; i++) {
+                if (pool[i] == NULL) { slot = i; break; }
+            }
+            if (slot >= 0) {
+                size_t size = (size_t)(rand() % 512) + 1;
+                pool[slot] = my_malloc(size);
+                if (pool[slot]) count++;
+            }
+        } else {
+            /* Free a random occupied slot */
+            int slot = rand() % MIX_POOL;
+            for (int i = 0; i < MIX_POOL; i++) {
+                int idx = (slot + i) % MIX_POOL;
+                if (pool[idx] != NULL) {
+                    my_free(pool[idx]);
+                    pool[idx] = NULL;
+                    count--;
+                    break;
+                }
+            }
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    /* Cleanup remaining */
+    for (int i = 0; i < MIX_POOL; i++) {
+        if (pool[i] != NULL) my_free(pool[i]);
+    }
+
+    double secs = elapsed_sec(start, end);
+    double ops_per_sec = (double)MIX_OPS / secs;
+
+    printf("  Custom allocator:  %10.0f ops/sec  (%.4f sec for %d ops)\n",
+           ops_per_sec, secs, MIX_OPS);
+}
+
+/* ---------------------------------------------------------------
  * Main
  * --------------------------------------------------------------- */
 
@@ -86,6 +204,12 @@ int main(void) {
     printf("--- Throughput (alloc+free, %d-byte blocks) ---\n", BENCH_SIZE);
     bench_throughput_custom();
     bench_throughput_system();
+
+    printf("\n--- Fragmentation (mixed sizes, free half, refill) ---\n");
+    bench_fragmentation();
+
+    printf("\n--- Mixed Workload (random sizes, interleaved) ---\n");
+    bench_mixed_workload();
 
     printf("\n========================================\n");
     printf("  Benchmarks complete.\n");
