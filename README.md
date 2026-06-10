@@ -122,6 +122,34 @@ Performance measurement:
 - **Fragmentation**: allocate mixed sizes, free half, measure hole reuse rate
 - **Mixed workload**: 5,000 random ops with interleaved alloc/free
 
+## Design Decisions & Tradeoffs
+
+### Why an Explicit Free List?
+
+An **implicit free list** requires scanning every block (allocated and free) on each `malloc` call — O(total blocks). An **explicit free list** links only the free blocks, reducing search time to O(free blocks). The cost is 16 extra bytes per free block (two pointers), but this is reclaimed when the block is allocated since the pointers overlap with the payload.
+
+### Why Boundary Tags?
+
+Without boundary tags (footers), coalescing with the *previous* block requires traversing from the heap start — O(n). Boundary tags duplicate the size/alloc info at the end of each block, enabling O(1) backward coalescing via simple pointer arithmetic. The tradeoff is 8 bytes of overhead per block, which is worthwhile given how critical coalescing is for reducing fragmentation.
+
+### LIFO vs. Address-Ordered Free List
+
+This allocator uses **LIFO (stack) insertion** — newly freed blocks go to the head of the free list. This gives O(1) insertion but can increase fragmentation since recently freed blocks are favored over better-fitting blocks elsewhere. An **address-ordered** list would improve coalescing locality but require O(n) insertion. LIFO was chosen for simplicity and speed.
+
+### First-Fit vs. Best-Fit
+
+| | First-Fit | Best-Fit |
+|---|-----------|----------|
+| **Search time** | O(1) average case | O(n) worst case |
+| **Fragmentation** | Higher — leaves small unusable gaps | Lower — minimizes wasted space |
+| **Use case** | General purpose, throughput-sensitive | Memory-constrained environments |
+
+Both strategies are implemented and selectable at compile time via `-DUSE_BEST_FIT`.
+
+### 16-Byte Alignment
+
+x86-64 SSE instructions require 16-byte aligned memory. While 8-byte alignment would suffice for most scalar types, 16-byte alignment ensures compatibility with SIMD operations and matches the behavior of glibc's `malloc`.
+
 ## Requirements
 
 - GCC (or compatible C11 compiler)
