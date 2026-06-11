@@ -154,3 +154,12 @@ x86-64 SSE instructions require 16-byte aligned memory. While 8-byte alignment w
 
 - GCC (or compatible C11 compiler)
 - POSIX environment (Linux, macOS, or WSL on Windows) — uses `sbrk()`
+
+## Future Improvements
+
+- **Segregated free lists** — maintain separate lists for different size classes (e.g., 16, 32, 64, 128+ bytes) to achieve near-O(1) allocation for common sizes
+- **`mmap` for large allocations** — bypass the heap for allocations above a threshold (e.g., 128 KB), similar to glibc's behavior
+- **Thread safety** — add mutex locking or per-thread arenas to support concurrent allocations
+- **Runtime strategy switching** — allow toggling between first-fit and best-fit at runtime via `my_set_strategy()` instead of compile-time flags
+- **Footer optimization** — eliminate footers for allocated blocks (store prev-alloc bit in the next block's header) to reduce per-block overhead from 32 to 24 bytes
+- **Windows `VirtualAlloc` backend** — replace `sbrk()` with `VirtualAlloc` for native Windows support without WSL
