@@ -53,14 +53,25 @@ int main(void) {
     strcat(msg, " Now with more space!");
     printf("   msg = \"%s\"\n\n", msg);
 
+    /* --- Calloc demo --- */
+    printf("6. Allocating a zeroed array with calloc...\n");
+    int *matrix = (int *)my_calloc(10, sizeof(int));
+    int all_zero = 1;
+    for (int i = 0; i < 10; i++) {
+        if (matrix[i] != 0) all_zero = 0;
+    }
+    printf("   calloc(10, %zu) -> all zeroed: %s\n\n",
+           sizeof(int), all_zero ? "YES" : "NO");
+
     /* --- Heap check --- */
-    printf("6. Running heap consistency check...\n");
+    printf("7. Running heap consistency check...\n");
     int errors = my_heap_check();
     printf("   Result: %s (%d errors)\n\n", errors ? "FAIL" : "PASS", errors);
 
     /* --- Cleanup --- */
     my_free(msg);
-    printf("7. Final heap state (all freed):\n");
+    my_free(matrix);
+    printf("8. Final heap state (all freed):\n");
     my_heap_dump();
 
     return 0;

@@ -33,11 +33,16 @@ ifeq ($(STRATEGY),best-fit)
   CFLAGS += -DUSE_BEST_FIT
 endif
 
+# Example files
+EXAMPLE_DIR = examples
+EXAMPLE_SRC = $(wildcard $(EXAMPLE_DIR)/*.c)
+EXAMPLE_BIN = $(patsubst $(EXAMPLE_DIR)/%.c, $(BUILD)/%, $(EXAMPLE_SRC))
+
 # ============================================================
 # Targets
 # ============================================================
 
-.PHONY: all clean test bench
+.PHONY: all clean test bench example
 
 all: $(OBJ)
 	@echo "Build complete."
@@ -77,6 +82,19 @@ bench: $(BENCH_BIN)
 		echo "\n--- Running $$b ---"; \
 		./$$b; \
 	done
+
+# Build and run example
+example: $(EXAMPLE_BIN)
+	@echo "========================================"
+	@echo "       Running Example Demo             "
+	@echo "========================================"
+	@for e in $(EXAMPLE_BIN); do \
+		./$$e; \
+	done
+
+# Build example executables
+$(BUILD)/%: $(EXAMPLE_DIR)/%.c $(OBJ) | $(BUILD)
+	$(CC) $(CFLAGS) $< $(OBJ) -o $@ $(LDFLAGS)
 
 # Clean build artifacts
 clean:
