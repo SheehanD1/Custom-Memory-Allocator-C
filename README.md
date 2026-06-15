@@ -21,6 +21,8 @@ A from-scratch implementation of `malloc`, `free`, `calloc`, and `realloc` in C,
 ├── src/
 │   ├── allocator.c        # Core allocator implementation
 │   └── debug.c            # Heap dump & consistency checker
+├── examples/
+│   └── example.c          # Guided demo of all allocator features
 ├── tests/
 │   ├── test_basic.c       # Unit tests for malloc/free/calloc/realloc
 │   ├── test_coalesce.c    # Coalescing & splitting edge cases
@@ -45,9 +47,28 @@ make test
 # Run benchmarks
 make bench
 
+# Run the example demo
+make example
+
 # Clean build artifacts
 make clean
 ```
+
+## Quick Start
+
+The fastest way to see the allocator in action:
+
+```bash
+make example
+```
+
+This builds and runs `examples/example.c`, which walks through:
+1. Allocating blocks and writing data (strings, arrays)
+2. Visualizing the heap layout with `my_heap_dump()`
+3. Freeing blocks and observing coalescing in real-time
+4. Growing a block with `my_realloc()`
+5. Allocating zeroed memory with `my_calloc()`
+6. Verifying heap integrity with `my_heap_check()`
 
 ## Architecture
 
